@@ -9,18 +9,27 @@
  * Values stored are: positionX, positionY, velocityX,
  * velocityY in that order.
  */
-module.exports = exports = BulletPool;
+module.exports = exports = WideMissle;
 
 var cur;
+const SmokeParticles = require('./smoke_particles');
+const smokeCD = 15;
+
 /**
  * @constructor BulletPool
  * Creates a BulletPool of the specified size
  * @param {uint} size the maximum number of bullets to exits concurrently
  */
-function BulletPool(maxSize) {
+function WideMissle(maxSize) {
   this.pool = new Float32Array(4 * maxSize);
   this.end = 0;
   this.max = maxSize;
+  this.sprite = new Image();
+  this.sprite.src = 'assets/missles.png'
+  this.iHeight = 13;
+  this.iWidth = 23;
+  this.smoke = new SmokeParticles(maxSize*200, 'rgba(110, 240, 0,');
+  this.smokeTimer = 0;
 }
 
 /**
@@ -30,13 +39,14 @@ function BulletPool(maxSize) {
  * @param {Vector} position where the bullet begins
  * @param {Vector} velocity the bullet's velocity
 */
-BulletPool.prototype.add = function(position, velocity) {
+WideMissle.prototype.add = function(position, velocity) {
   if(this.end < this.max) {
     this.pool[4*this.end] = position.x;
     this.pool[4*this.end+1] = position.y;
     this.pool[4*this.end+2] = velocity.x;
     this.pool[4*this.end+3] = velocity.y;
     this.end++;
+    this.smoke.emit(position);
   }
 }
 
@@ -53,11 +63,17 @@ BulletPool.prototype.add = function(position, velocity) {
  * @param {function} callback called with the bullet's position,
  * if the return value is true, the bullet is removed from the pool
  */
-BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
+WideMissle.prototype.update = function(elapsedTime, callback, enemies) {
   for(var i = 0; i < this.end; i++){
     // Move the bullet
     this.pool[4*i] += this.pool[4*i+2];
     this.pool[4*i+1] += this.pool[4*i+3];
+    if(this.smokeTimer <= 0)
+    {
+      this.smoke.emit({x: this.pool[4*i], y: this.pool[4*i+1]});
+      this.smoke.emit({x: this.pool[4*i]+23, y: this.pool[4*i+1]});
+      this.smokeTimer= smokeCD;
+    }
     cur = {x: this.pool[4*i], y: this.pool[4*i+1], width: 2, height: 2};
     for(var j = 0; j<enemies.length; j++)
     {
@@ -81,6 +97,9 @@ BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
       i--;
     }
   }
+  
+  this.smokeTimer -= elapsedTime;
+  this.smoke.update(elapsedTime);
 }
 
 /**
@@ -89,15 +108,16 @@ BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-BulletPool.prototype.render = function(elapsedTime, ctx) {
+WideMissle.prototype.render = function(elapsedTime, ctx) {
   // Render the bullets as a single path
   ctx.save();
-  ctx.beginPath();
-  ctx.fillStyle = "black";
+  this.smoke.render(elapsedTime, ctx);
+  
   for(var i = 0; i < this.end; i++) {
-    ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
-    ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
+    ctx.drawImage(this.sprite, 109, 98, 23, 13, this.pool[4*i], this.pool[4*i+1], 23, 13);
+    //ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
+   //ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
   }
-  ctx.fill();
+  
   ctx.restore();
 }

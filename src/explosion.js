@@ -5,20 +5,19 @@
  * A class for managing a particle engine that
  * emulates a smoke trail
  */
-module.exports = exports = SmokeParticles;
+module.exports = exports = Explosion;
 
 /**
  * @constructor SmokeParticles
  * Creates a SmokeParticles engine of the specified size
  * @param {uint} size the maximum number of particles to exist concurrently
  */
-function SmokeParticles(maxSize, color) {
+function Explosion(maxSize) {
   this.pool = new Float32Array(3 * maxSize);
   this.start = 0;
   this.end = 0;
   this.wrapped = false;
   this.max = maxSize;
-  this.color = color;
 }
 
 /**
@@ -26,7 +25,7 @@ function SmokeParticles(maxSize, color) {
  * Adds a new particle at the given position
  * @param {Vector} position
 */
-SmokeParticles.prototype.emit = function(position) {
+Explosion.prototype.emit = function(position) {
   if(this.end != this.max) {
     this.pool[3*this.end] = position.x;
     this.pool[3*this.end+1] = position.y;
@@ -45,7 +44,7 @@ SmokeParticles.prototype.emit = function(position) {
  * Updates the particles
  * @param {DOMHighResTimeStamp} elapsedTime
  */
-SmokeParticles.prototype.update = function(elapsedTime) {
+Explosion.prototype.update = function(elapsedTime) {
   function updateParticle(i) {
     this.pool[3*i+2] += elapsedTime;
     if(this.pool[3*i+2] > 2000) this.start = i;
@@ -71,11 +70,11 @@ SmokeParticles.prototype.update = function(elapsedTime) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-SmokeParticles.prototype.render = function(elapsedTime, ctx) {
+Explosion.prototype.render = function(elapsedTime, ctx) {
   function renderParticle(i){
     var alpha = 1 - (this.pool[3*i+2] / 1000);
     var radius = 0.1 * this.pool[3*i+2];
-    if(radius > 5) radius = 5;
+    if(radius > 24) radius = 24;
     ctx.beginPath();
     ctx.arc(
       this.pool[3*i],   // X position
@@ -84,8 +83,7 @@ SmokeParticles.prototype.render = function(elapsedTime, ctx) {
       0,
       2*Math.PI
     );
-    ctx.fillStyle = this.color + alpha + ')';
-    //ctx.fillStyle = 'rgba(160, 160, 160,' + alpha + ')';
+    ctx.fillStyle = 'rgba(255, 125, 0, ' + alpha + ')';
     ctx.fill();
   }
 

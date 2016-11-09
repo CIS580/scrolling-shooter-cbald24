@@ -9,7 +9,7 @@
  * Values stored are: positionX, positionY, velocityX,
  * velocityY in that order.
  */
-module.exports = exports = BulletPool;
+module.exports = exports = BadBullets;
 
 var cur;
 /**
@@ -17,7 +17,7 @@ var cur;
  * Creates a BulletPool of the specified size
  * @param {uint} size the maximum number of bullets to exits concurrently
  */
-function BulletPool(maxSize) {
+function BadBullets(maxSize) {
   this.pool = new Float32Array(4 * maxSize);
   this.end = 0;
   this.max = maxSize;
@@ -30,7 +30,7 @@ function BulletPool(maxSize) {
  * @param {Vector} position where the bullet begins
  * @param {Vector} velocity the bullet's velocity
 */
-BulletPool.prototype.add = function(position, velocity) {
+BadBullets.prototype.add = function(position, velocity) {
   if(this.end < this.max) {
     this.pool[4*this.end] = position.x;
     this.pool[4*this.end+1] = position.y;
@@ -53,15 +53,16 @@ BulletPool.prototype.add = function(position, velocity) {
  * @param {function} callback called with the bullet's position,
  * if the return value is true, the bullet is removed from the pool
  */
-BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
+BadBullets.prototype.update = function(elapsedTime, callback, player) {
   for(var i = 0; i < this.end; i++){
     // Move the bullet
     this.pool[4*i] += this.pool[4*i+2];
     this.pool[4*i+1] += this.pool[4*i+3];
-    cur = {x: this.pool[4*i], y: this.pool[4*i+1], width: 2, height: 2};
-    for(var j = 0; j<enemies.length; j++)
+    cur = {x: this.pool[4*i], y: this.pool[4*i+1], width: 2, height: 2, type: 'bullets'};
+    if(player.checkHit(cur))
     {
-      enemies[j].checkHit(cur);
+        this.pool[4*i] = -100;
+        this.pool[4*i+1] = -100;
     }
     // If a callback was supplied, call it
     if(callback && callback({
@@ -89,7 +90,7 @@ BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-BulletPool.prototype.render = function(elapsedTime, ctx) {
+BadBullets.prototype.render = function(elapsedTime, ctx) {
   // Render the bullets as a single path
   ctx.save();
   ctx.beginPath();

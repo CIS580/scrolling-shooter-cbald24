@@ -9,18 +9,27 @@
  * Values stored are: positionX, positionY, velocityX,
  * velocityY in that order.
  */
-module.exports = exports = BulletPool;
+module.exports = exports = LaserPool;
 
 var cur;
+const LaserParticles = require('./laser_particle');
+const laserCD = 15;
+
 /**
  * @constructor BulletPool
  * Creates a BulletPool of the specified size
  * @param {uint} size the maximum number of bullets to exits concurrently
  */
-function BulletPool(maxSize) {
+function LaserPool(maxSize) {
   this.pool = new Float32Array(4 * maxSize);
   this.end = 0;
   this.max = maxSize;
+  this.sprite = new Image();
+  this.sprite.src = 'assets/missles.png'
+  this.iHeight = 13;
+  this.iWidth = 23;
+  this.laser = new LaserParticles(maxSize*100);
+  this.laserTimer = 0;
 }
 
 /**
@@ -30,13 +39,14 @@ function BulletPool(maxSize) {
  * @param {Vector} position where the bullet begins
  * @param {Vector} velocity the bullet's velocity
 */
-BulletPool.prototype.add = function(position, velocity) {
+LaserPool.prototype.add = function(position, velocity) {
   if(this.end < this.max) {
     this.pool[4*this.end] = position.x;
     this.pool[4*this.end+1] = position.y;
     this.pool[4*this.end+2] = velocity.x;
     this.pool[4*this.end+3] = velocity.y;
     this.end++;
+    //this.laser.emit(position);
   }
 }
 
@@ -53,11 +63,17 @@ BulletPool.prototype.add = function(position, velocity) {
  * @param {function} callback called with the bullet's position,
  * if the return value is true, the bullet is removed from the pool
  */
-BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
+LaserPool.prototype.update = function(elapsedTime, callback, enemies) {
   for(var i = 0; i < this.end; i++){
     // Move the bullet
     this.pool[4*i] += this.pool[4*i+2];
     this.pool[4*i+1] += this.pool[4*i+3];
+    if(this.laserTimer <= 0)
+    {
+      this.laser.emit({x: this.pool[4*i], y: this.pool[4*i+1]});
+      //this.laser.emit({x: this.pool[4*i]+23, y: this.pool[4*i+1]});
+      this.laserTimer= laserCD;
+    }
     cur = {x: this.pool[4*i], y: this.pool[4*i+1], width: 2, height: 2};
     for(var j = 0; j<enemies.length; j++)
     {
@@ -81,6 +97,9 @@ BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
       i--;
     }
   }
+  
+  this.laserTimer -= elapsedTime;
+  this.laser.update(elapsedTime);
 }
 
 /**
@@ -89,15 +108,16 @@ BulletPool.prototype.update = function(elapsedTime, callback, enemies) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-BulletPool.prototype.render = function(elapsedTime, ctx) {
+LaserPool.prototype.render = function(elapsedTime, ctx) {
   // Render the bullets as a single path
   ctx.save();
-  ctx.beginPath();
-  ctx.fillStyle = "black";
+  this.laser.render(elapsedTime, ctx);
+  
   for(var i = 0; i < this.end; i++) {
-    ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
-    ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
+    ctx.drawImage(this.sprite, 13, 70, 11, 42, this.pool[4*i] - 6, this.pool[4*i+1], 11, 42);
+    //ctx.moveTo(this.pool[4*i], this.pool[4*i+1]);
+   //ctx.arc(this.pool[4*i], this.pool[4*i+1], 2, 0, 2*Math.PI);
   }
-  ctx.fill();
+  
   ctx.restore();
 }

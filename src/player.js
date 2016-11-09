@@ -2,12 +2,13 @@
 
 /* Classes and Libraries */
 const Vector = require('./vector');
-const Missile = require('./missile');
+const Explosion = require('./explosion');
 
 /* Constants */
 const PLAYER_SPEED = 5;
 const BULLET_SPEED = 10;
-
+const MISSLE_SPEED = 13;
+const WIDE_SPEED = 6;
 /**
  * @module Player
  * A class representing a player's helicopter
@@ -19,15 +20,23 @@ module.exports = exports = Player;
  * Creates a player
  * @param {BulletPool} bullets the bullet pool
  */
-function Player(bullets, missiles) {
-  this.missiles = missiles;
-  this.missileCount = 4;
+function Player(bullets, missles, wideMiss, laser) {
   this.bullets = bullets;
+  this.missles = missles;
+  this.wide = wideMiss;
+  this.laser = laser;
+  this.state = "idle";
   this.angle = 0;
-  this.position = {x: 200, y: 200};
+  this.pos = {x: 200, y: 200};
   this.velocity = {x: 0, y: 0};
   this.img = new Image()
   this.img.src = 'assets/tyrian.shp.007D3C.png';
+  this.health = 100;
+  this.explo = null;
+  this.height = 27;
+  this.width = 23;
+  this.wState = "bullets";
+  this.explo = new Explosion(3);
 }
 
 /**
@@ -46,20 +55,21 @@ Player.prototype.update = function(elapsedTime, input) {
   this.velocity.y = 0;
   if(input.up) this.velocity.y -= PLAYER_SPEED / 2;
   if(input.down) this.velocity.y += PLAYER_SPEED / 2;
-
+  
   // determine player angle
   this.angle = 0;
   if(this.velocity.x < 0) this.angle = -1;
   if(this.velocity.x > 0) this.angle = 1;
 
   // move the player
-  this.position.x += this.velocity.x;
-  this.position.y += this.velocity.y;
+  this.pos.x += this.velocity.x;
+  this.pos.y += this.velocity.y;
 
   // don't let the player move off-screen
-  if(this.position.x < 0) this.position.x = 0;
-  if(this.position.x > 1024) this.position.x = 1024;
-  if(this.position.y > 786) this.position.y = 786;
+  if(this.pos.x < 0) this.pos.x = 0;
+  if(this.pos.x > 1024) this.pos.x = 1024;
+  if(this.pos.y > 786) this.pos.y = 786;
+  this.explo.update(elapsedTime);
 }
 
 /**
@@ -68,12 +78,16 @@ Player.prototype.update = function(elapsedTime, input) {
  * @param {DOMHighResTimeStamp} elapsedTime
  * @param {CanvasRenderingContext2D} ctx
  */
-Player.prototype.render = function(elapasedTime, ctx) {
+Player.prototype.render = function(elapsedTime, ctx) {
   var offset = this.angle * 23;
   ctx.save();
-  ctx.translate(this.position.x, this.position.y);
+  
+  ctx.translate(this.pos.x, this.pos.y);
+  this.explo.render(elapsedTime, ctx);
   ctx.drawImage(this.img, 48+offset, 57, 23, 27, -12.5, -12, 23, 27);
+  
   ctx.restore();
+  
 }
 
 /**
@@ -82,21 +96,83 @@ Player.prototype.render = function(elapasedTime, ctx) {
  * @param {Vector} direction
  */
 Player.prototype.fireBullet = function(direction) {
-  var position = Vector.add(this.position, {x:30, y:30});
+  //var pos = Vector.add(this.pos, {x:30, y:30});
   var velocity = Vector.scale(Vector.normalize(direction), BULLET_SPEED);
-  this.bullets.add(position, velocity);
+  this.bullets.add(this.pos, velocity);
 }
 
-/**
- * @function fireMissile
- * Fires a missile, if the player still has missiles
- * to fire.
- */
-Player.prototype.fireMissile = function() {
-  if(this.missileCount > 0){
-    var position = Vector.add(this.position, {x:0, y:30})
-    var missile = new Missile(position);
-    this.missiles.push(missile);
-    this.missileCount--;
+Player.prototype.fireMissle = function(direction) {
+  var pos = Vector.add(this.pos, {x:30, y:30});
+  var velocity = Vector.scale(Vector.normalize(direction), MISSLE_SPEED);
+  this.missles.add(this.pos, velocity);
+}
+
+Player.prototype.fireWide = function(direction) {
+  var pos = Vector.add(this.pos, {x:30, y:30});
+  var velocity = Vector.scale(Vector.normalize(direction), WIDE_SPEED);
+  this.wide.add(this.pos, velocity);
+}
+
+Player.prototype.fireLaser = function(direction) {
+  var pos = Vector.add(this.pos, {x:30, y:30});
+  var velocity = Vector.scale(Vector.normalize(direction), WIDE_SPEED);
+  this.laser.add(this.pos, velocity);
+}
+
+Player.prototype.checkHit= function(cur)
+{
+    if(this.pos.x + this.width < cur.x || this.pos.x > cur.x + cur.width || this.pos.y + this.height < cur.y || this.pos.y + 1 > cur.y + cur.height)
+  {
+    return false;
   }
+  switch (cur.type)
+  {
+    case "bullets":
+      this.health -= 2;
+      break;
+    case "plane":
+      this.health -= 100;
+      break;
+    case "aa":
+      this.health -= 20;
+      break;
+    case "spin":
+      this.health = 0;
+      break;
+    case "kama":
+      this.health = 0;
+      break;
+  }
+  if(this.health < 0)
+  {
+    this.health = 0;
+  }
+  if(this.health <= 0)
+  {
+    this.explo.emit({x: this.pos.x +5, y: this.pos.y + 200});
+    this.pos = {x: -200, y: -200};
+  }
+  return true;
+}
+
+Player.prototype.renderHealth = function(ctx)
+{
+  ctx.fillStyle = 'grey';
+  ctx.fillRect(15, 750, 104, 14);
+  ctx.fillStyle = 'black';
+  ctx.fillRect(17, 752, 100, 10);
+  if(this.health > 50)
+  {
+    ctx.fillStyle = 'green';
+  }
+  else if(this.health >25)
+  {
+    ctx.fillStyle = 'yellow';
+  }
+  else
+  {
+    ctx.fillStyle = 'red';
+  }
+  
+  ctx.fillRect(17, 752, this.health, 10);
 }
